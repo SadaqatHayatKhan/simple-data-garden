@@ -1,23 +1,15 @@
 
 import { createClient } from '@supabase/supabase-js';
+import { type User, type Task } from '@/types';
 
-// The Supabase URL and anon key are public values that can be exposed in the client
-// These will need to be replaced with your actual Supabase URL and anon key
-const supabaseUrl = 'https://your-supabase-url.supabase.co';
-const supabaseAnonKey = 'your-supabase-anon-key';
+// Use environment variables provided by the Supabase integration
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export type User = {
-  id: string;
-  email: string;
-};
-
-export type Task = {
-  id: string;
-  title: string;
-  description: string | null;
-  is_complete: boolean;
-  created_at: string;
-  user_id: string;
-};
+// We're using the types from the types directory now, so we don't need these duplicated types
