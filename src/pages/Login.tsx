@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { toast } from "sonner";
 import AnimatedButton from "@/components/ui-custom/AnimatedButton";
 import { Input } from "@/components/ui/input";
@@ -9,20 +9,32 @@ import { Label } from "@/components/ui/label";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import Header from "@/components/layout/Header";
 import PageContainer from "@/components/layout/PageContainer";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState(null);
+  const [isConfigured, setIsConfigured] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Check if Supabase is configured
+    setIsConfigured(isSupabaseConfigured());
+    
     const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user) {
-        setUser(data.session.user);
-        navigate("/dashboard");
+      if (!isSupabaseConfigured()) return;
+      
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
+          setUser(data.session.user);
+          navigate("/dashboard");
+        }
+      } catch (error) {
+        console.error("Error checking user session:", error);
       }
     };
     
@@ -31,6 +43,11 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isConfigured) {
+      toast.error("Supabase is not configured. Please link your Supabase project in Lovable.");
+      return;
+    }
     
     if (!email || !password) {
       toast.error("Please enter both email and password");
@@ -51,7 +68,13 @@ const Login = () => {
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error);
-      toast.error(error.message || "Failed to sign in");
+      
+      // More user-friendly error messages
+      if (error.message === "Failed to fetch") {
+        toast.error("Network error. Please check your connection and make sure Supabase is properly configured.");
+      } else {
+        toast.error(error.message || "Failed to sign in");
+      }
     } finally {
       setLoading(false);
     }
@@ -69,6 +92,16 @@ const Login = () => {
                 Sign in to your account to continue
               </p>
             </div>
+            
+            {!isConfigured && (
+              <Alert variant="warning" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Supabase not configured</AlertTitle>
+                <AlertDescription>
+                  Please link your Supabase project in Lovable settings to enable authentication.
+                </AlertDescription>
+              </Alert>
+            )}
             
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
@@ -108,6 +141,7 @@ const Login = () => {
                 className="w-full mt-6" 
                 type="submit"
                 loading={loading}
+                disabled={!isConfigured}
               >
                 Sign In
               </AnimatedButton>

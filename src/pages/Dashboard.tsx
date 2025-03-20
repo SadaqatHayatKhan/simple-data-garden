@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase, checkSupabaseConnection } from "@/lib/supabase";
+import { supabase, checkSupabaseConnection, isSupabaseConfigured } from "@/lib/supabase";
 import Header from "@/components/layout/Header";
 import PageContainer from "@/components/layout/PageContainer";
 import TaskList from "@/components/task/TaskList";
@@ -9,17 +9,25 @@ import { User } from "@/types";
 import GlassCard from "@/components/ui-custom/GlassCard";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, AlertCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error' | 'not-configured'>('checking');
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkUser = async () => {
       try {
+        // First check if Supabase is configured
+        if (!isSupabaseConfigured()) {
+          setConnectionStatus('not-configured');
+          setLoading(false);
+          return;
+        }
+        
         const { data } = await supabase.auth.getSession();
         
         if (!data.session) {
@@ -38,8 +46,8 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error("Auth error:", error);
-        navigate("/login");
         setConnectionStatus('error');
+        // Don't navigate away in case of error, let them see the error message
       } finally {
         setLoading(false);
       }
@@ -50,6 +58,8 @@ const Dashboard = () => {
 
   // Set up real-time subscription
   useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === "SIGNED_OUT") {
@@ -61,7 +71,7 @@ const Dashboard = () => {
     );
 
     return () => {
-      authListener.subscription.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
   }, [navigate]);
 
@@ -98,6 +108,24 @@ const Dashboard = () => {
               Manage your tasks with a clean, minimal interface
             </p>
             
+            {connectionStatus === 'not-configured' && (
+              <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-700 dark:text-amber-400">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="h-5 w-5" />
+                  <p className="font-medium">Supabase is not configured</p>
+                </div>
+                <p className="mb-4">You need to link your Supabase project in the Lovable settings.</p>
+                <p className="text-sm mb-4">
+                  Navigate to the Supabase menu in the top bar of Lovable and connect your Supabase project.
+                </p>
+                <Link to="/">
+                  <Button variant="outline" size="sm">
+                    Return to Home
+                  </Button>
+                </Link>
+              </div>
+            )}
+            
             {connectionStatus === 'error' && (
               <div className="mt-6 p-4 bg-destructive/10 rounded-lg text-destructive">
                 <p className="mb-2">Unable to connect to Supabase. Please check your configuration.</p>
@@ -115,7 +143,7 @@ const Dashboard = () => {
             )}
           </GlassCard>
           
-          {connectionStatus !== 'error' && <TaskList />}
+          {connectionStatus === 'connected' && <TaskList />}
         </div>
       </PageContainer>
     </>
