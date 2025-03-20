@@ -1,16 +1,20 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { supabase, checkSupabaseConnection } from "@/lib/supabase";
 import Header from "@/components/layout/Header";
 import PageContainer from "@/components/layout/PageContainer";
 import TaskList from "@/components/task/TaskList";
 import { User } from "@/types";
 import GlassCard from "@/components/ui-custom/GlassCard";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,9 +28,18 @@ const Dashboard = () => {
         }
         
         setUser(data.session.user as User);
+        
+        // Check Supabase connection
+        const isConnected = await checkSupabaseConnection();
+        setConnectionStatus(isConnected ? 'connected' : 'error');
+        
+        if (!isConnected) {
+          toast.error("Could not connect to Supabase. Please check your configuration.");
+        }
       } catch (error) {
         console.error("Auth error:", error);
         navigate("/login");
+        setConnectionStatus('error');
       } finally {
         setLoading(false);
       }
@@ -52,6 +65,20 @@ const Dashboard = () => {
     };
   }, [navigate]);
 
+  const handleRetryConnection = async () => {
+    setConnectionStatus('checking');
+    const isConnected = await checkSupabaseConnection();
+    setConnectionStatus(isConnected ? 'connected' : 'error');
+    
+    if (isConnected) {
+      toast.success("Successfully connected to Supabase!");
+      // Refresh the page to reload all data
+      window.location.reload();
+    } else {
+      toast.error("Still unable to connect to Supabase.");
+    }
+  };
+
   if (loading) {
     return (
       <PageContainer className="flex items-center justify-center">
@@ -70,9 +97,25 @@ const Dashboard = () => {
             <p className="text-muted-foreground">
               Manage your tasks with a clean, minimal interface
             </p>
+            
+            {connectionStatus === 'error' && (
+              <div className="mt-6 p-4 bg-destructive/10 rounded-lg text-destructive">
+                <p className="mb-2">Unable to connect to Supabase. Please check your configuration.</p>
+                <p className="text-sm mb-4">Make sure you've linked your Supabase project correctly in Lovable.</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRetryConnection}
+                  className="gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Retry Connection
+                </Button>
+              </div>
+            )}
           </GlassCard>
           
-          <TaskList />
+          {connectionStatus !== 'error' && <TaskList />}
         </div>
       </PageContainer>
     </>
