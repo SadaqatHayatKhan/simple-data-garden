@@ -94,7 +94,7 @@ const Login = () => {
             </div>
             
             {!isConfigured && (
-              <Alert variant="warning" className="mb-6">
+              <Alert variant="destructive" className="mb-6">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Supabase not configured</AlertTitle>
                 <AlertDescription>

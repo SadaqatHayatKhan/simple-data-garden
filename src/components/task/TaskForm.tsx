@@ -55,6 +55,8 @@ const TaskForm = ({ task, open, onOpenChange, onTaskSaved }: TaskFormProps) => {
       const { data: userData } = await supabase.auth.getSession();
       if (!userData.session) {
         toast.error("You must be logged in to create tasks");
+        setIsSubmitting(false);
+        onOpenChange(false);
         return;
       }
       
@@ -71,23 +73,29 @@ const TaskForm = ({ task, open, onOpenChange, onTaskSaved }: TaskFormProps) => {
           })
           .eq("id", task.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Task update error:", error);
+          throw error;
+        }
         toast.success("Task updated successfully");
       } else {
         // Create new task with user_id
-        const { error } = await supabase.from("tasks").insert([
+        console.log("Creating new task with user_id:", userId);
+        const { error, data } = await supabase.from("tasks").insert([
           {
             title,
             description: description || null,
             is_complete: false,
             user_id: userId, // Add the user_id
           },
-        ]);
+        ]).select();
 
         if (error) {
           console.error("Task creation error:", error);
           throw error;
         }
+        
+        console.log("Task created successfully:", data);
         toast.success("Task created successfully");
       }
 
