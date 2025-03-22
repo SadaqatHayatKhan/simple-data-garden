@@ -8,25 +8,41 @@ import { toast } from "sonner";
 import AnimatedButton from "../ui-custom/AnimatedButton";
 import TaskForm from "./TaskForm";
 import TaskItem from "./TaskItem";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const TaskList = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   const fetchTasks = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
+      // First get the current user
+      const { data: userData } = await supabase.auth.getSession();
+      
+      if (!userData.session) {
+        setError("You must be logged in to view tasks");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Then fetch tasks for this user
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
+        .eq("user_id", userData.session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       setTasks(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching tasks:", error);
+      setError(`Failed to load tasks: ${error.message || "Unknown error"}`);
       toast.error("Failed to load tasks");
     } finally {
       setIsLoading(false);
@@ -54,8 +70,9 @@ const TaskList = () => {
       
       setTasks((prev) => prev.filter((task) => task.id !== id));
       toast.success("Task deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete task");
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error(`Failed to delete task: ${error.message || "Unknown error"}`);
     }
   };
 
@@ -68,6 +85,12 @@ const TaskList = () => {
           Add Task
         </AnimatedButton>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {isLoading ? (
         <div className="space-y-4">

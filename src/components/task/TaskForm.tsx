@@ -51,6 +51,15 @@ const TaskForm = ({ task, open, onOpenChange, onTaskSaved }: TaskFormProps) => {
     setIsSubmitting(true);
 
     try {
+      // Get the current user first
+      const { data: userData } = await supabase.auth.getSession();
+      if (!userData.session) {
+        toast.error("You must be logged in to create tasks");
+        return;
+      }
+      
+      const userId = userData.session.user.id;
+      
       if (isEditing && task) {
         // Update existing task
         const { error } = await supabase
@@ -58,30 +67,35 @@ const TaskForm = ({ task, open, onOpenChange, onTaskSaved }: TaskFormProps) => {
           .update({
             title,
             description: description || null,
+            // Don't update user_id on edit
           })
           .eq("id", task.id);
 
         if (error) throw error;
         toast.success("Task updated successfully");
       } else {
-        // Create new task
+        // Create new task with user_id
         const { error } = await supabase.from("tasks").insert([
           {
             title,
             description: description || null,
             is_complete: false,
+            user_id: userId, // Add the user_id
           },
         ]);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Task creation error:", error);
+          throw error;
+        }
         toast.success("Task created successfully");
       }
 
       onTaskSaved();
       onOpenChange(false);
-    } catch (error) {
-      toast.error(`Failed to ${isEditing ? "update" : "create"} task`);
-      console.error(error);
+    } catch (error: any) {
+      console.error("Task operation error:", error);
+      toast.error(`Failed to ${isEditing ? "update" : "create"} task: ${error.message || "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
     }
