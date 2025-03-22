@@ -1,28 +1,9 @@
 
-import { createClient } from '@supabase/supabase-js';
-import { type User, type Task } from '@/types';
+// This file re-exports the Supabase client from the integrations folder
+import { supabase } from "@/integrations/supabase/client";
 
-// Use environment variables provided by the Supabase integration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Verify that environment variables are available
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Make sure your Supabase project is correctly linked.');
-}
-
-// Create the Supabase client with more robust error handling
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder-url.supabase.co', 
-  supabaseAnonKey || 'placeholder-key',
-  {
-    auth: {
-      persistSession: true,
-      detectSessionInUrl: true,
-      autoRefreshToken: true
-    }
-  }
-);
+// Re-export the supabase client
+export { supabase };
 
 // Add a helper function to check if Supabase is properly connected
 export const checkSupabaseConnection = async () => {
@@ -46,5 +27,6 @@ export const checkSupabaseConnection = async () => {
 
 // Check if we're in dev mode and show appropriate messages
 export const isSupabaseConfigured = () => {
-  return !!supabaseUrl && !!supabaseAnonKey;
+  // The integrated client should already have the URL and key set
+  return true;
 };
