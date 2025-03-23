@@ -38,13 +38,18 @@ const Register = () => {
     setLoading(true);
     
     try {
+      console.log("Registering user with email:", email);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin + '/login'
+        }
       });
       
       if (error) throw error;
       
+      console.log("Registration response:", data);
       toast.success("Registration successful! Please check your email to confirm your account.");
       navigate("/login");
     } catch (error: any) {

@@ -21,11 +21,12 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if Supabase is configured
-    setIsConfigured(isSupabaseConfigured());
+    // Check if Supabase is configured - uses our new function
+    const configured = isSupabaseConfigured();
+    setIsConfigured(configured);
     
     const checkUser = async () => {
-      if (!isSupabaseConfigured()) return;
+      if (!configured) return;
       
       try {
         const { data } = await supabase.auth.getSession();
@@ -45,7 +46,7 @@ const Login = () => {
     e.preventDefault();
     
     if (!isConfigured) {
-      toast.error("Supabase is not configured. Please link your Supabase project in Lovable.");
+      toast.error("Supabase is not properly configured");
       return;
     }
     
@@ -57,6 +58,7 @@ const Login = () => {
     setLoading(true);
     
     try {
+      console.log("Logging in user with email:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -64,14 +66,17 @@ const Login = () => {
       
       if (error) throw error;
       
+      console.log("Login successful:", data);
       toast.success("Signed in successfully!");
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error);
       
       // More user-friendly error messages
-      if (error.message === "Failed to fetch") {
-        toast.error("Network error. Please check your connection and make sure Supabase is properly configured.");
+      if (error.message.includes("Invalid login credentials")) {
+        toast.error("Invalid email or password. Please try again.");
+      } else if (error.message === "Failed to fetch") {
+        toast.error("Network error. Please check your connection.");
       } else {
         toast.error(error.message || "Failed to sign in");
       }

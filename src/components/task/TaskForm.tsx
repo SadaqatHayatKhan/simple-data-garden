@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { Task } from "@/types";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -61,6 +61,7 @@ const TaskForm = ({ task, open, onOpenChange, onTaskSaved }: TaskFormProps) => {
       }
       
       const userId = userData.session.user.id;
+      console.log("Current user ID:", userId);
       
       if (isEditing && task) {
         // Update existing task
@@ -70,6 +71,7 @@ const TaskForm = ({ task, open, onOpenChange, onTaskSaved }: TaskFormProps) => {
             title,
             description: description || null,
             // Don't update user_id on edit
+            updated_at: new Date().toISOString()
           })
           .eq("id", task.id);
 
