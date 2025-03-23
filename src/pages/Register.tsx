@@ -50,11 +50,31 @@ const Register = () => {
       if (error) throw error;
       
       console.log("Registration response:", data);
-      toast.success("Registration successful! Please check your email to confirm your account.");
-      navigate("/login");
+      
+      if (data.user?.identities?.length === 0) {
+        toast.error("This email is already registered. Please try logging in instead.");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
+      
+      // In development environments without email verification set up,
+      // we can allow immediate login
+      if (data.session) {
+        toast.success("Registration successful! You are now logged in.");
+        navigate("/dashboard");
+      } else {
+        toast.success("Registration successful! Please check your email to confirm your account.");
+        navigate("/login");
+      }
     } catch (error: any) {
       console.error("Registration error:", error);
-      toast.error(error.message || "Failed to create account");
+      
+      if (error.message.includes("already registered")) {
+        toast.error("This email is already registered. Please try logging in instead.");
+        setTimeout(() => navigate("/login"), 2000);
+      } else {
+        toast.error(error.message || "Failed to create account");
+      }
     } finally {
       setLoading(false);
     }

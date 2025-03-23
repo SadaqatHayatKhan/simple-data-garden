@@ -64,7 +64,18 @@ const Login = () => {
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("Email not confirmed")) {
+          // Send a new confirmation email
+          await supabase.auth.resend({
+            type: 'signup',
+            email,
+          });
+          
+          throw new Error("Please verify your email first. We've sent a new confirmation email.");
+        }
+        throw error;
+      }
       
       console.log("Login successful:", data);
       toast.success("Signed in successfully!");
@@ -74,7 +85,31 @@ const Login = () => {
       
       // More user-friendly error messages
       if (error.message.includes("Invalid login credentials")) {
-        toast.error("Invalid email or password. Please try again.");
+        // Check if the user exists but email is not confirmed
+        try {
+          const { data, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: window.location.origin + '/login'
+            }
+          });
+          
+          if (signUpError && signUpError.message.includes("User already registered")) {
+            // User exists but likely not confirmed
+            await supabase.auth.resend({
+              type: 'signup',
+              email,
+            });
+            toast.error("Email not verified. We've sent another verification email.");
+          } else {
+            toast.error("Invalid email or password. Please try again.");
+          }
+        } catch {
+          toast.error("Invalid email or password. Please try again.");
+        }
+      } else if (error.message.includes("Email not confirmed")) {
+        toast.error("Please verify your email first. We've sent a new confirmation email.");
       } else if (error.message === "Failed to fetch") {
         toast.error("Network error. Please check your connection.");
       } else {
@@ -82,6 +117,25 @@ const Login = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast.error("Please enter your email address first");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Password reset instructions sent to your email");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send reset instructions");
     }
   };
 
@@ -125,12 +179,13 @@ const Login = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="password">Password</Label>
-                  <Link 
-                    to="#" 
+                  <button 
+                    type="button"
+                    onClick={handleForgotPassword}
                     className="text-xs text-primary hover:underline"
                   >
                     Forgot password?
-                  </Link>
+                  </button>
                 </div>
                 <Input
                   id="password"

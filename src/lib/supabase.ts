@@ -9,10 +9,9 @@ export { supabase };
 export const checkSupabaseConnection = async () => {
   try {
     // A simple ping that won't fail due to table not existing
-    const { error } = await supabase.from('_dummy_query_for_connection_test_').select('*').limit(1).maybeSingle();
+    const { data, error } = await supabase.from('tasks').select('id').limit(1).maybeSingle();
     
-    // Specific error for table not found is fine - that means we connected to Supabase
-    if (error && error.code === 'PGRST116') {
+    if (!error) {
       return true;
     }
     
