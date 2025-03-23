@@ -8,18 +8,28 @@ export { supabase };
 // Add a helper function to check if Supabase is properly connected
 export const checkSupabaseConnection = async () => {
   try {
-    // A simple ping that won't fail due to table not existing
-    const { data, error } = await supabase.from('tasks').select('id').limit(1).maybeSingle();
+    // First try to check auth status as a simple connection test
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
-    if (!error) {
+    if (!sessionError) {
+      console.log("Supabase connection verified via auth");
       return true;
     }
     
-    // If no error with auth, we're connected
-    const { error: authError } = await supabase.auth.getSession();
-    return !authError;
+    // Try a database query as fallback
+    console.log("Trying fallback connection test...");
+    const { error: queryError } = await supabase.from('tasks').select('id').limit(1);
+    
+    // If there's no error or just a permission error (which means Supabase is working)
+    if (!queryError || queryError.code === 'PGRST116') {
+      console.log("Supabase connection verified via database query");
+      return true;
+    }
+    
+    console.error("Supabase connection test failed:", queryError);
+    return false;
   } catch (err) {
-    console.error('Supabase connection test failed:', err);
+    console.error('Supabase connection test failed with exception:', err);
     return false;
   }
 };

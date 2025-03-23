@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase, checkSupabaseConnection } from "@/lib/supabase";
 import { toast } from "sonner";
 import AnimatedButton from "@/components/ui-custom/AnimatedButton";
 import { Input } from "@/components/ui/input";
@@ -16,34 +16,42 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [user, setUser] = useState(null);
   const [isConfigured, setIsConfigured] = useState(true);
+  const [connectionTested, setConnectionTested] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if Supabase is configured - uses our new function
-    const configured = isSupabaseConfigured();
-    setIsConfigured(configured);
-    
-    const checkUser = async () => {
-      if (!configured) return;
-      
+    const testConnection = async () => {
       try {
+        const isConnected = await checkSupabaseConnection();
+        setIsConfigured(isConnected);
+        setConnectionTested(true);
+        
+        // Check for user session
         const { data } = await supabase.auth.getSession();
         if (data.session?.user) {
           setUser(data.session.user);
           navigate("/dashboard");
         }
       } catch (error) {
-        console.error("Error checking user session:", error);
+        console.error("Error checking connection:", error);
+        setIsConfigured(false);
+        setConnectionTested(true);
       }
     };
     
-    checkUser();
+    testConnection();
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!connectionTested) {
+      toast.error("Still checking Supabase connection. Please wait.");
+      return;
+    }
     
     if (!isConfigured) {
       toast.error("Supabase is not properly configured");
@@ -65,15 +73,34 @@ const Login = () => {
       });
       
       if (error) {
-        if (error.message.includes("Email not confirmed")) {
-          // Send a new confirmation email
-          await supabase.auth.resend({
-            type: 'signup',
-            email,
-          });
-          
-          throw new Error("Please verify your email first. We've sent a new confirmation email.");
+        // First, try to check if email is verified using signUp with the same credentials
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin + '/login'
+          }
+        });
+        
+        if (signUpError) {
+          if (signUpError.message.includes("User already registered")) {
+            // Since user exists, we can assume the issue might be with unverified email
+            const { error: resendError } = await supabase.auth.resend({
+              type: 'signup',
+              email,
+            });
+            
+            if (!resendError) {
+              setIsVerifying(true);
+              throw new Error("Email not verified. We've sent a new verification email to your inbox.");
+            }
+          }
+        } else if (signUpData?.user?.identities?.length === 0) {
+          // This indicates user exists but email might not be confirmed
+          setIsVerifying(true);
+          throw new Error("Email not verified. Please check your inbox for the verification link.");
         }
+        
         throw error;
       }
       
@@ -85,31 +112,9 @@ const Login = () => {
       
       // More user-friendly error messages
       if (error.message.includes("Invalid login credentials")) {
-        // Check if the user exists but email is not confirmed
-        try {
-          const { data, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: window.location.origin + '/login'
-            }
-          });
-          
-          if (signUpError && signUpError.message.includes("User already registered")) {
-            // User exists but likely not confirmed
-            await supabase.auth.resend({
-              type: 'signup',
-              email,
-            });
-            toast.error("Email not verified. We've sent another verification email.");
-          } else {
-            toast.error("Invalid email or password. Please try again.");
-          }
-        } catch {
-          toast.error("Invalid email or password. Please try again.");
-        }
-      } else if (error.message.includes("Email not confirmed")) {
-        toast.error("Please verify your email first. We've sent a new confirmation email.");
+        toast.error("Invalid email or password. Please check your credentials and try again.");
+      } else if (error.message.includes("Email not verified")) {
+        toast.error(error.message);
       } else if (error.message === "Failed to fetch") {
         toast.error("Network error. Please check your connection.");
       } else {
@@ -152,12 +157,22 @@ const Login = () => {
               </p>
             </div>
             
-            {!isConfigured && (
+            {!isConfigured && connectionTested && (
               <Alert variant="destructive" className="mb-6">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Supabase not configured</AlertTitle>
                 <AlertDescription>
                   Please link your Supabase project in Lovable settings to enable authentication.
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {isVerifying && (
+              <Alert className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Email verification required</AlertTitle>
+                <AlertDescription>
+                  We've sent a verification link to your email address. Please check your inbox and verify your email before logging in.
                 </AlertDescription>
               </Alert>
             )}
@@ -201,7 +216,7 @@ const Login = () => {
                 className="w-full mt-6" 
                 type="submit"
                 loading={loading}
-                disabled={!isConfigured}
+                disabled={!connectionTested || !isConfigured}
               >
                 Sign In
               </AnimatedButton>
