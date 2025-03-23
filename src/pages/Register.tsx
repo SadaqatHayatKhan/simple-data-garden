@@ -41,10 +41,7 @@ const Register = () => {
       console.log("Registering user with email:", email);
       const { data, error } = await supabase.auth.signUp({
         email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin + '/login'
-        }
+        password
       });
       
       if (error) throw error;
@@ -57,15 +54,21 @@ const Register = () => {
         return;
       }
       
-      // In development environments without email verification set up,
-      // we can allow immediate login
-      if (data.session) {
-        toast.success("Registration successful! You are now logged in.");
-        navigate("/dashboard");
-      } else {
-        toast.success("Registration successful! Please check your email to confirm your account.");
+      // Automatically sign the user in after registration
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (signInError) {
+        console.error("Auto sign-in error:", signInError);
+        toast.success("Registration successful! Please sign in with your credentials.");
         navigate("/login");
+        return;
       }
+      
+      toast.success("Registration successful! You are now logged in.");
+      navigate("/dashboard");
     } catch (error: any) {
       console.error("Registration error:", error);
       

@@ -16,7 +16,6 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [user, setUser] = useState(null);
   const [isConfigured, setIsConfigured] = useState(true);
   const [connectionTested, setConnectionTested] = useState(false);
@@ -73,34 +72,12 @@ const Login = () => {
       });
       
       if (error) {
-        // First, try to check if email is verified using signUp with the same credentials
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: window.location.origin + '/login'
-          }
-        });
-        
-        if (signUpError) {
-          if (signUpError.message.includes("User already registered")) {
-            // Since user exists, we can assume the issue might be with unverified email
-            const { error: resendError } = await supabase.auth.resend({
-              type: 'signup',
-              email,
-            });
-            
-            if (!resendError) {
-              setIsVerifying(true);
-              throw new Error("Email not verified. We've sent a new verification email to your inbox.");
-            }
-          }
-        } else if (signUpData?.user?.identities?.length === 0) {
-          // This indicates user exists but email might not be confirmed
-          setIsVerifying(true);
-          throw new Error("Email not verified. Please check your inbox for the verification link.");
+        // If we get an invalid login credentials error, try to provide better guidance
+        if (error.message.includes("Invalid login credentials")) {
+          toast.error("Invalid email or password. If you just signed up, make sure you're using the same credentials.");
+        } else {
+          toast.error(error.message || "Failed to sign in");
         }
-        
         throw error;
       }
       
@@ -109,17 +86,6 @@ const Login = () => {
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error);
-      
-      // More user-friendly error messages
-      if (error.message.includes("Invalid login credentials")) {
-        toast.error("Invalid email or password. Please check your credentials and try again.");
-      } else if (error.message.includes("Email not verified")) {
-        toast.error(error.message);
-      } else if (error.message === "Failed to fetch") {
-        toast.error("Network error. Please check your connection.");
-      } else {
-        toast.error(error.message || "Failed to sign in");
-      }
     } finally {
       setLoading(false);
     }
@@ -163,16 +129,6 @@ const Login = () => {
                 <AlertTitle>Supabase not configured</AlertTitle>
                 <AlertDescription>
                   Please link your Supabase project in Lovable settings to enable authentication.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {isVerifying && (
-              <Alert className="mb-6">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Email verification required</AlertTitle>
-                <AlertDescription>
-                  We've sent a verification link to your email address. Please check your inbox and verify your email before logging in.
                 </AlertDescription>
               </Alert>
             )}
