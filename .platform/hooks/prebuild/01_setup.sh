@@ -1,4 +1,3 @@
 
 #!/bin/bash
-mkdir -p /var/app/current/dist
-
+mkdir -p /var/app/staging/dist

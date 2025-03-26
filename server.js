@@ -10,6 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Serve static files from the 'dist' directory
+app.use('/static', express.static(path.join(__dirname, 'dist')));
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // For all routes, serve the index.html file

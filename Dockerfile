@@ -17,9 +17,11 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Create the dist directory if it doesn't exist
+RUN mkdir -p dist
+
 # Expose the port the app runs on
 EXPOSE 3000
 
 # Run the server
 CMD ["node", "server.js"]
-
